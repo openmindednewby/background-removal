@@ -1,10 +1,8 @@
 import { copyFileSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { normalizePath, type Plugin } from 'vite';
+import { installedSource } from './assets';
 import { bgRemovalCopies, bgRemovalUrls, externWasmEntry } from './viteAssets';
-import type { BgRemovalSource } from './viteAssets';
 
 export { bgRemovalCopies, bgRemovalUrls, DEFAULT_BASE_PATH, externWasmEntry } from './viteAssets';
 export type { AssetCopy, BgRemovalSource, BgRemovalUrls } from './viteAssets';
@@ -12,14 +10,6 @@ export type { AssetCopy, BgRemovalSource, BgRemovalUrls } from './viteAssets';
 export interface BgRemovalAssetsOptions {
   /** URL folder the versioned model and runtime are served under; defaults to `/bg-removal/`. */
   basePath?: string;
-}
-
-const versionOf = (dir: string): string => (JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as { version: string }).version;
-
-function installedSource(): BgRemovalSource {
-  const pkgDir = fileURLToPath(new URL('..', import.meta.url));
-  const ortDir = dirname(createRequire(import.meta.url).resolve('onnxruntime-web/ort-wasm-simd-threaded.jsep.wasm'));
-  return { pkgDir, ortDir, pkgVersion: versionOf(pkgDir), ortVersion: versionOf(dirname(ortDir)) };
 }
 
 /** Serves the model and jsep runtime from your origin in dev, copies them into the build. */

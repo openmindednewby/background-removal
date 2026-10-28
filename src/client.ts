@@ -1,5 +1,4 @@
 import type { Backend } from './Backend';
-import { createDefaultWorker } from './defaultWorker';
 import { ModelKind } from './ModelKind';
 import type { CutRequest, CutResponse, WorkerConfig } from './protocol';
 import type { MaskBuffer } from './types';
@@ -9,7 +8,7 @@ export interface BackgroundRemoverOptions {
   runtimeBaseUrl: string;
   model?: ModelKind;
   preferWebGpu?: boolean;
-  createWorker?: () => Worker;
+  createWorker: () => Worker;
 }
 
 export interface CutResult {
@@ -56,7 +55,7 @@ export function createBackgroundRemover(options: BackgroundRemoverOptions): Back
     model: options.model ?? ModelKind.Modnet,
     preferWebGpu: options.preferWebGpu ?? true,
   };
-  const worker = (options.createWorker ?? createDefaultWorker)();
+  const worker = options.createWorker();
   const pending = new Map<number, Pending>();
   let nextId = 0;
   worker.onmessage = (event: MessageEvent<CutResponse>): void => settle(pending, event.data);

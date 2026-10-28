@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+- Breaking (subpath move): the default worker (`new URL('./worker.js', import.meta.url)`) moved to `@dloizides/background-removal/default-worker`, which exports `createDefaultWorker` and a `createBackgroundRemover` that defaults `createWorker` to it. The main entry no longer uses `import.meta`, so Metro web can load it; its `createBackgroundRemover` now requires `createWorker`. Vite apps change one import path.
+- New: `dist/worker.js` inlines onnxruntime-web (extern-wasm entry), so it has no bare import and can be served as a static file.
+- New: `@dloizides/background-removal/assets` (no `vite` import) exports `installedAssetCopies`, `installedAssetUrls`, `copyBgRemovalAssets`, `bgRemovalWorkerUrl`, `bgRemovalWorkerCopy` and the existing copy-list helpers.
+- New: `bg-removal-assets <outDir> [--base-path] [--urls-file]` CLI copies the model, runtime and worker for bundler-less hosts and writes `{ modelUrl, runtimeBaseUrl, workerUrl }`.
+- `./vite` is unchanged.
+
 ## 0.1.1
 
 - Fix: a failed WebGPU session no longer clears the session cache, so a WASM fallback keeps its model instead of downloading it again on every cut.

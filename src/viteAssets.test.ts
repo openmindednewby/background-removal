@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { bgRemovalCopies, bgRemovalUrls, externWasmEntry } from './viteAssets';
+import { bgRemovalCopies, bgRemovalUrls, bgRemovalWorkerCopy, bgRemovalWorkerUrl, externWasmEntry } from './viteAssets';
 
 describe('bgRemovalUrls', () => {
   it('with package 0.1.0 and runtime 1.31.1, puts both versions in the paths', () => {
@@ -43,5 +43,21 @@ describe('externWasmEntry', () => {
     const entry = externWasmEntry('ort');
 
     expect(entry).toBe(join('ort', 'ort.min.mjs'));
+  });
+});
+
+describe('bgRemovalWorkerUrl', () => {
+  it('with package 0.2.0 and the default base path, serves the worker beside the model', () => {
+    const url = bgRemovalWorkerUrl('0.2.0');
+
+    expect(url).toBe('/bg-removal/0.2.0/worker.js');
+  });
+});
+
+describe('bgRemovalWorkerCopy', () => {
+  it('with a custom base path, copies dist/worker.js under that folder and version', () => {
+    const copy = bgRemovalWorkerCopy({ pkgDir: 'pkg', ortDir: 'ort', pkgVersion: '0.2.0', ortVersion: '1.31.1' }, 'cutout');
+
+    expect(copy).toEqual({ from: join('pkg', 'dist', 'worker.js'), to: 'cutout/0.2.0/worker.js' });
   });
 });

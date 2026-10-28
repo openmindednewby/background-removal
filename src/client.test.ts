@@ -2,7 +2,6 @@ import { Backend } from './Backend';
 import { createBackgroundRemover } from './client';
 import type { CutRequest, CutResponse } from './protocol';
 
-jest.mock('./defaultWorker', () => ({ createDefaultWorker: jest.fn() }));
 
 class FakeWorker {
   onmessage: ((event: MessageEvent<CutResponse>) => void) | null = null;

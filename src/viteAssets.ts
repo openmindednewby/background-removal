@@ -20,6 +20,7 @@ export interface AssetCopy {
 const RUNTIME_FILE = /^ort-wasm-simd-threaded\.jsep\.(wasm|mjs)$/;
 const MODEL = 'modnet.onnx';
 const EXTERN_WASM_ENTRY = 'ort.min.mjs';
+const WORKER = 'worker.js';
 
 export const DEFAULT_BASE_PATH = '/bg-removal/';
 
@@ -44,4 +45,14 @@ export function bgRemovalCopies(source: BgRemovalSource, ortListing: readonly st
 /** The onnxruntime entry that loads its wasm from wasmPaths, so no bundler copies a second wasm into assets/. */
 export function externWasmEntry(ortDir: string): string {
   return join(ortDir, EXTERN_WASM_ENTRY);
+}
+
+/** Same-origin URL of the bundled worker, for hosts that start it by URL (Metro web). */
+export function bgRemovalWorkerUrl(pkgVersion: string, basePath: string = DEFAULT_BASE_PATH): string {
+  return `${folder(basePath)}${pkgVersion}/${WORKER}`;
+}
+
+/** The bundled worker copied next to the model, so a host without a bundler can start it. */
+export function bgRemovalWorkerCopy(source: BgRemovalSource, basePath: string = DEFAULT_BASE_PATH): AssetCopy {
+  return { from: join(source.pkgDir, 'dist', WORKER), to: bgRemovalWorkerUrl(source.pkgVersion, basePath).slice(1) };
 }

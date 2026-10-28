@@ -8,10 +8,11 @@ fix what the model missed.
 ## Use
 
 ```ts
-import { createBackgroundRemover, attachRefineBrush, encodeCutout, BrushMode } from '@dloizides/background-removal';
+import { attachRefineBrush, encodeCutout, BrushMode } from '@dloizides/background-removal';
+import { createBackgroundRemover } from '@dloizides/background-removal/default-worker';
 
 const remover = createBackgroundRemover({
-  modelUrl: '/bg-removal/0.1.0/modnet.onnx',
+  modelUrl: '/bg-removal/0.2.0/modnet.onnx',
   runtimeBaseUrl: '/bg-removal/ort/1.31.1/',
 });
 
@@ -54,11 +55,36 @@ export default defineConfig({ plugins: [bgRemovalAssetsPlugin({ basePath: '/bg-r
 
 ## Worker and bundlers
 
-`createBackgroundRemover` starts `dist/worker.js` with
-`new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })`. Vite: add the package
-to `optimizeDeps.exclude`. Bundlers that cannot follow that pattern (Metro web) pass
-`createWorker: () => new Worker('/bg-removal/worker.js', { type: 'module' })` and ship a bundled
-copy of `@dloizides/background-removal/worker`.
+`dist/worker.js` is fully bundled: onnxruntime-web (its extern-wasm entry) is inlined, so the
+file has no bare import and any host can serve it as a static module worker.
+
+The main entry has no `import.meta`, so it loads under Metro web. Its `createBackgroundRemover`
+needs `createWorker`. Two ways to give it one:
+
+- **Vite and other bundlers that follow `new URL('./worker.js', import.meta.url)`** import
+  `createBackgroundRemover` from `@dloizides/background-removal/default-worker`. It is the same
+  function with `createWorker` defaulting to the bundled worker. In Vite, add the package to
+  `optimizeDeps.exclude`.
+- **Metro / Expo web (no Vite, no esbuild)** copy the assets with the CLI before the bundler runs
+  and start the worker by URL:
+
+```jsonc
+// package.json
+"scripts": { "prebuild": "bg-removal-assets public --urls-file src/bgRemovalUrls.json", "postinstall": "bg-removal-assets public --urls-file src/bgRemovalUrls.json" }
+```
+
+```ts
+import { createBackgroundRemover } from '@dloizides/background-removal';
+import urls from './bgRemovalUrls.json';
+
+const remover = createBackgroundRemover({ ...urls, createWorker: () => new Worker(urls.workerUrl, { type: 'module' }) });
+```
+
+`bg-removal-assets <outDir> [--base-path /bg-removal/] [--urls-file <file.json>]` copies the model,
+the jsep runtime pair and `worker.js` under versioned paths in `<outDir>` and writes
+`{ modelUrl, runtimeBaseUrl, workerUrl }`. Git-ignore the copied folder and the urls file. The same
+copy list is available in code from `@dloizides/background-removal/assets`
+(`installedAssetCopies`, `installedAssetUrls`, `copyBgRemovalAssets`), which never imports `vite`.
 
 ## Measured quality (MODNet, Chromium, WASM)
 
