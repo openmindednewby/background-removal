@@ -1,6 +1,6 @@
 {
   "name": "@dloizides/background-removal",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "In-browser background removal: an Apache-2.0 MODNet (or U2-Netp) model run by onnxruntime-web in a Web Worker, WebGPU with WASM fallback, model served from your own host. Returns an alpha PNG + mask, plus a framework-free keep/erase refine brush for a canvas. No image byte leaves the device.",
   "keywords": [
     "background-removal",
