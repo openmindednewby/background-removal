@@ -63,7 +63,9 @@
   },
   "scripts": {
     "build": "rimraf dist && tsup",
+    "pretest": "npm run build",
     "test": "jest",
+    "pretest:coverage": "npm run build",
     "test:coverage": "jest --coverage",
     "test:e2e": "playwright test",
     "lint": "eslint src e2e --ext .ts",
