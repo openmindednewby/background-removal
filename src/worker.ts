@@ -21,6 +21,11 @@ interface LoadedSession {
 const scope = self as unknown as WorkerScope;
 let loaded: Promise<LoadedSession> | undefined;
 
+async function createWasmSession(model: Uint8Array): Promise<LoadedSession> {
+  const session = await ort.InferenceSession.create(model, { executionProviders: ['wasm'] });
+  return { session, backend: Backend.Wasm };
+}
+
 async function createSession(config: WorkerConfig): Promise<LoadedSession> {
   ort.env.wasm.wasmPaths = config.runtimeBaseUrl;
   const response = await fetch(config.modelUrl);
@@ -33,11 +38,10 @@ async function createSession(config: WorkerConfig): Promise<LoadedSession> {
       const session = await ort.InferenceSession.create(model, { executionProviders: ['webgpu'] });
       return { session, backend: Backend.WebGpu };
     } catch {
-      loaded = undefined;
+      return createWasmSession(model);
     }
   }
-  const session = await ort.InferenceSession.create(model, { executionProviders: ['wasm'] });
-  return { session, backend: Backend.Wasm };
+  return createWasmSession(model);
 }
 
 function drawPixels(bitmap: ImageBitmap, size: Size): Uint8ClampedArray<ArrayBuffer> {

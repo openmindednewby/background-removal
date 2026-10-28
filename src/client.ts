@@ -60,6 +60,12 @@ export function createBackgroundRemover(options: BackgroundRemoverOptions): Back
   const pending = new Map<number, Pending>();
   let nextId = 0;
   worker.onmessage = (event: MessageEvent<CutResponse>): void => settle(pending, event.data);
+  const rejectAll = (reason: string): void => {
+    pending.forEach((waiter) => waiter.reject(new Error(reason)));
+    pending.clear();
+  };
+  worker.onerror = (event: ErrorEvent): void => rejectAll(`background remover worker crashed: ${event.message}`);
+  worker.onmessageerror = (): void => rejectAll('background remover worker sent an unreadable reply');
   return {
     removeBackground(image: Blob | ImageBitmap): Promise<CutResult> {
       nextId += 1;

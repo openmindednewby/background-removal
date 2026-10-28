@@ -42,6 +42,16 @@ Neither filename carries a content hash, so put the version in the path and serv
 Serve the `.wasm` as `application/wasm`. Setting `Cross-Origin-Opener-Policy: same-origin` and
 `Cross-Origin-Embedder-Policy: require-corp` on the page lets onnxruntime use WASM threads.
 
+Vite does all of this with one plugin. It serves the files in dev, copies the model plus the jsep
+runtime pair into the build, defines `__BG_REMOVAL_URLS__` (`{ modelUrl, runtimeBaseUrl }`), and
+points `onnxruntime-web` at its extern-wasm entry so no unused `assets/*.wasm` is emitted:
+
+```ts
+import { bgRemovalAssetsPlugin } from '@dloizides/background-removal/vite';
+
+export default defineConfig({ plugins: [bgRemovalAssetsPlugin({ basePath: '/bg-removal/' })] });
+```
+
 ## Worker and bundlers
 
 `createBackgroundRemover` starts `dist/worker.js` with
