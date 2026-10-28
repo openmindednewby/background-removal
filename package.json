@@ -1,0 +1,50 @@
+{
+  "name": "@dloizides/background-removal",
+  "version": "0.0.0",
+  "description": "In-browser background removal: an Apache-2.0 MODNet (or U2-Netp) model run by onnxruntime-web in a Web Worker, WebGPU with WASM fallback, model served from your own host. Returns an alpha PNG + mask, plus a framework-free keep/erase refine brush for a canvas. No image byte leaves the device.",
+  "keywords": ["background-removal", "segmentation", "matting", "onnxruntime-web", "webgpu", "wasm", "modnet"],
+  "author": "dloizides",
+  "license": "MIT",
+  "type": "module",
+  "repository": { "type": "git", "url": "https://github.com/openmindednewby/background-removal.git" },
+  "homepage": "https://github.com/openmindednewby/background-removal#readme",
+  "bugs": { "url": "https://github.com/openmindednewby/background-removal/issues" },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./worker": "./dist/worker.js",
+    "./models/*": "./models/*"
+  },
+  "files": ["dist", "models/modnet.onnx", "models/NOTICE.md", "README.md", "CHANGELOG.md"],
+  "sideEffects": ["./dist/worker.js"],
+  "engines": { "node": ">=18.0.0" },
+  "scripts": {
+    "build": "rimraf dist && tsup",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:e2e": "playwright test",
+    "lint": "eslint src e2e --ext .ts",
+    "lint:fix": "eslint src e2e --ext .ts --fix",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.e2e.json",
+    "clean": "rimraf dist",
+    "security:audit": "npm audit --audit-level=high",
+    "prepublishOnly": "npm run clean && npm run build && npm run test"
+  },
+  "dependencies": { "onnxruntime-web": "^1.23.0" },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.19.32",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "esbuild": "^0.25.0",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "rimraf": "^5.0.0",
+    "ts-jest": "^29.1.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0"
+  }
+}
