@@ -29,6 +29,20 @@ const refined = await encodeCutout(cut.image, cut.mask);
 The model downloads on the first `removeBackground` call, not on import. Call it only when the
 user presses "Remove background".
 
+## One call, assets on first use
+
+`removeBackground` starts a worker, cuts one photo and stops the worker. Nothing downloads before the first call. The model and runtime go into Cache Storage, so later calls fetch neither.
+
+```ts
+import { isBackgroundRemovalDownloaded, removeBackground } from '@dloizides/background-removal';
+
+const assetBaseUrl = '/bg-removal/';
+await isBackgroundRemovalDownloaded({ assetBaseUrl });
+const png = await removeBackground(photoBlob, { assetBaseUrl, signal, onProgress: ({ loadedBytes, totalBytes }) => {} });
+```
+
+`assetBaseUrl` is the folder `bg-removal-assets <outDir> --base-path <path>` wrote. It must be on the page's origin, because a browser refuses a cross-origin worker script (or pass `createWorker`). `totalBytes` is the full 55.4 MB, whatever compression the server uses. A folder that answers `text/html` with 200, as an SPA fallback does, fails the call instead of caching a page.
+
 ## Host the model and runtime on your own origin
 
 No third-party CDN is contacted. Copy two things into the app's static output at build time:

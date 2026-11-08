@@ -1,6 +1,7 @@
 import type { Backend } from './Backend';
+import { absoluteUrl } from './assetUrls';
 import { ModelKind } from './ModelKind';
-import type { CutRequest, CutResponse, WorkerConfig } from './protocol';
+import type { CutRequest, CutResponse, DownloadProgress, WorkerConfig, WorkerMessage } from './protocol';
 import type { MaskBuffer } from './types';
 
 export interface BackgroundRemoverOptions {
@@ -8,7 +9,13 @@ export interface BackgroundRemoverOptions {
   runtimeBaseUrl: string;
   model?: ModelKind;
   preferWebGpu?: boolean;
+  runtimeWasmUrl?: string;
+  downloadBytes?: number;
   createWorker: () => Worker;
+}
+
+export interface CutOptions {
+  onProgress?: (progress: DownloadProgress) => void;
 }
 
 export interface CutResult {
@@ -20,17 +27,14 @@ export interface CutResult {
 }
 
 export interface BackgroundRemover {
-  removeBackground(image: Blob | ImageBitmap): Promise<CutResult>;
+  removeBackground(image: Blob | ImageBitmap, options?: CutOptions): Promise<CutResult>;
   dispose(): void;
 }
 
 interface Pending {
   resolve: (result: CutResult) => void;
   reject: (error: Error) => void;
-}
-
-function absolute(url: string): string {
-  return new URL(url, globalThis.location?.href).href;
+  onProgress?: (progress: DownloadProgress) => void;
 }
 
 function settle(pending: Map<number, Pending>, response: CutResponse): void {
@@ -50,15 +54,24 @@ function settle(pending: Map<number, Pending>, response: CutResponse): void {
 /** Starts a worker that cuts the background out of photos on this device; the model loads on the first cut. */
 export function createBackgroundRemover(options: BackgroundRemoverOptions): BackgroundRemover {
   const config: WorkerConfig = {
-    modelUrl: absolute(options.modelUrl),
-    runtimeBaseUrl: absolute(options.runtimeBaseUrl),
+    modelUrl: absoluteUrl(options.modelUrl),
+    runtimeBaseUrl: absoluteUrl(options.runtimeBaseUrl),
+    runtimeWasmUrl: options.runtimeWasmUrl === undefined ? undefined : absoluteUrl(options.runtimeWasmUrl),
+    downloadBytes: options.downloadBytes,
     model: options.model ?? ModelKind.Modnet,
     preferWebGpu: options.preferWebGpu ?? true,
   };
   const worker = options.createWorker();
   const pending = new Map<number, Pending>();
   let nextId = 0;
-  worker.onmessage = (event: MessageEvent<CutResponse>): void => settle(pending, event.data);
+  worker.onmessage = (event: MessageEvent<WorkerMessage>): void => {
+    const message = event.data;
+    if ('loadedBytes' in message) {
+      pending.get(message.id)?.onProgress?.({ loadedBytes: message.loadedBytes, totalBytes: message.totalBytes });
+      return;
+    }
+    settle(pending, message);
+  };
   const rejectAll = (reason: string): void => {
     pending.forEach((waiter) => waiter.reject(new Error(reason)));
     pending.clear();
@@ -66,11 +79,11 @@ export function createBackgroundRemover(options: BackgroundRemoverOptions): Back
   worker.onerror = (event: ErrorEvent): void => rejectAll(`background remover worker crashed: ${event.message}`);
   worker.onmessageerror = (): void => rejectAll('background remover worker sent an unreadable reply');
   return {
-    removeBackground(image: Blob | ImageBitmap): Promise<CutResult> {
+    removeBackground(image: Blob | ImageBitmap, cutOptions: CutOptions = {}): Promise<CutResult> {
       nextId += 1;
       const request: CutRequest = { id: nextId, config, image };
       return new Promise<CutResult>((resolve, reject) => {
-        pending.set(request.id, { resolve, reject });
+        pending.set(request.id, { resolve, reject, onProgress: cutOptions.onProgress });
         worker.postMessage(request, image instanceof Blob ? [] : [image]);
       });
     },

@@ -23,6 +23,15 @@ describe('dist/worker.js', () => {
 });
 
 describe('dist/index.js', () => {
+  it('after a build, carries the package version the asset URLs are built from', () => {
+    const { version } = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')) as { version: string };
+    const main = readDist('index.js');
+
+    const carried = /packageVersion["']?:\s*["']([^"']+)/.exec(main)?.[1];
+
+    expect(carried).toBe(version);
+  });
+
   it('with the default worker moved to its own subpath, never uses import.meta', () => {
     const main = readDist('index.js');
 

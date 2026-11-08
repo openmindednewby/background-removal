@@ -6,6 +6,8 @@ export interface WorkerConfig {
   runtimeBaseUrl: string;
   model: ModelKind;
   preferWebGpu: boolean;
+  runtimeWasmUrl?: string;
+  downloadBytes?: number;
 }
 
 export interface CutRequest {
@@ -33,3 +35,14 @@ export interface CutFailure {
 }
 
 export type CutResponse = CutSuccess | CutFailure;
+
+export interface DownloadProgress {
+  loadedBytes: number;
+  totalBytes: number | undefined;
+}
+
+export interface CutProgress extends DownloadProgress {
+  id: number;
+}
+
+export type WorkerMessage = CutResponse | CutProgress;

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- New: `removeBackground(blob, { assetBaseUrl, signal, onProgress })` cuts one photo in its own worker, and `isBackgroundRemovalDownloaded({ assetBaseUrl })` says whether the assets are on the device.
+- New: `createBackgroundRemover` takes `runtimeWasmUrl` and `downloadBytes`, and `removeBackground(image, { onProgress })` reports download progress.
+- Assets go through Cache Storage when the browser has it; a new version evicts the old one.
+- A download that stops for 30 s fails, and a 200 `text/html` reply is refused instead of cached.
+
 ## 0.2.0
 
 - Breaking (subpath move): the default worker (`new URL('./worker.js', import.meta.url)`) moved to `@dloizides/background-removal/default-worker`, which exports `createDefaultWorker` and a `createBackgroundRemover` that defaults `createWorker` to it. The main entry no longer uses `import.meta`, so Metro web can load it; its `createBackgroundRemover` now requires `createWorker`. Vite apps change one import path.

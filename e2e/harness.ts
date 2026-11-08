@@ -1,5 +1,5 @@
 import { BrushMode, attachRefineBrush, createBackgroundRemover, maskIoU } from '../src/index';
-import type { CutResult } from '../src/index';
+import type { BackgroundRemover, CutResult } from '../src/index';
 
 const FIXTURES = ['fingertips', 'couple-full', 'jimmy1', 'jimmy2', 'jimmy'];
 const RGBA_STRIDE = 4;
@@ -17,6 +17,8 @@ export interface CaseReport {
 export interface HarnessReport {
   cases: CaseReport[];
   refineErased: boolean;
+  progressEvents: number;
+  secondWorkerPngBytes: number;
 }
 
 async function loadMask(name: string): Promise<Uint8ClampedArray> {
@@ -44,22 +46,36 @@ function eraseAtCentre(result: CutResult): boolean {
   return result.mask.data[centre] === 0;
 }
 
-async function runHarness(): Promise<HarnessReport> {
-  const remover = createBackgroundRemover({
+const startRemover = (): BackgroundRemover =>
+  createBackgroundRemover({
     modelUrl: '/models/modnet.onnx',
     runtimeBaseUrl: '/ort/',
+    runtimeWasmUrl: '/ort/ort-wasm-simd-threaded.jsep.wasm',
+    downloadBytes: 1,
     createWorker: () => new Worker('/worker.js', { type: 'module' }),
   });
+
+async function cutWithFreshWorker(): Promise<number> {
+  const remover = startRemover();
+  const photo = await (await fetch(`/fixtures/${FIXTURES[0]}.jpg`)).blob();
+  const cut = await remover.removeBackground(photo);
+  remover.dispose();
+  return cut.png.size;
+}
+
+async function runHarness(): Promise<HarnessReport> {
+  const remover = startRemover();
+  let progressEvents = 0;
   const cases: CaseReport[] = [];
   let last: CutResult | undefined;
   for (const name of FIXTURES) {
     const photo = await (await fetch(`/fixtures/${name}.jpg`)).blob();
-    last = await remover.removeBackground(photo);
+    last = await remover.removeBackground(photo, { onProgress: () => { progressEvents += 1; } });
     const iou = maskIoU(last.mask.data, await loadMask(name));
     cases.push({ name, iou, elapsedMs: last.elapsedMs, backend: last.backend, pngBytes: last.png.size });
   }
   remover.dispose();
-  return { cases, refineErased: last !== undefined && eraseAtCentre(last) };
+  return { cases, refineErased: last !== undefined && eraseAtCentre(last), progressEvents, secondWorkerPngBytes: await cutWithFreshWorker() };
 }
 
 (window as unknown as { runHarness: typeof runHarness }).runHarness = runHarness;

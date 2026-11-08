@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { HarnessReport } from './harness';
 
-const ORIGIN = 'http://bgr.test';
+const ORIGIN = 'https://bgr.test';
 const IOU_FLOOR = 0.95;
 const MOUNTS: Array<[string, string]> = [
   ['/ort/', 'node_modules/onnxruntime-web/dist/'],
@@ -67,6 +67,10 @@ test.describe('removeBackground in Chromium', () => {
     expect(leaks(seen)).toEqual([]);
     expect(report.cases.filter((result) => result.name !== 'fingertips' && result.iou < IOU_FLOOR)).toEqual([]);
     expect(report.refineErased).toBe(true);
+    expect(report.progressEvents).toBeGreaterThan(0);
+    expect(report.secondWorkerPngBytes).toBeGreaterThan(0);
+    expect(seen.filter((request) => request.url.endsWith('/modnet.onnx'))).toHaveLength(1);
+    expect(seen.filter((request) => request.url.endsWith('.jsep.wasm'))).toHaveLength(1);
   });
 
   test('a planted upload of the photo, is caught by the request probe', async ({ page, context }) => {

@@ -1,6 +1,8 @@
 import { Backend } from './Backend';
 import { createBackgroundRemover } from './client';
-import type { CutRequest, CutResponse } from './protocol';
+import type { CutRequest, WorkerMessage } from './protocol';
+
+type CutResponse = WorkerMessage;
 
 
 class FakeWorker {
@@ -47,6 +49,21 @@ describe('createBackgroundRemover worker.onmessageerror', () => {
     worker.onmessageerror?.({} as MessageEvent);
 
     await expect(cut).rejects.toThrow('unreadable');
+  });
+});
+
+describe('createBackgroundRemover worker.onmessage progress', () => {
+  it('with two cuts pending, tells only the cut the progress belongs to', () => {
+    const { worker, remover } = start();
+    const first = jest.fn();
+    const second = jest.fn();
+    void remover.removeBackground(new Blob(), { onProgress: first });
+    void remover.removeBackground(new Blob(), { onProgress: second });
+
+    worker.onmessage?.({ data: { id: 2, loadedBytes: 3, totalBytes: 9 } } as MessageEvent<CutResponse>);
+
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledWith({ loadedBytes: 3, totalBytes: 9 });
   });
 });
 

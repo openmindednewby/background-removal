@@ -1,15 +1,17 @@
 import * as ort from 'onnxruntime-web';
+import { evictOtherAssets, loadAsset } from './assetStore';
 import { Backend } from './Backend';
 import { applyAlpha, normalizeMatte, resizeMatte } from './postprocess';
 import { modelInputSize, toInputTensor } from './preprocess';
-import type { CutRequest, CutResponse, WorkerConfig } from './protocol';
+import type { CutRequest, CutResponse, WorkerConfig, WorkerMessage } from './protocol';
 import type { Size } from './types';
 
 const RGB_CHANNELS = 3;
+const PROGRESS_STEP_BYTES = 524_288;
 
 interface WorkerScope {
   onmessage: ((event: MessageEvent<CutRequest>) => void) | null;
-  postMessage(message: CutResponse, transfer?: Transferable[]): void;
+  postMessage(message: WorkerMessage, transfer?: Transferable[]): void;
   navigator: { gpu?: unknown };
 }
 
@@ -26,13 +28,30 @@ async function createWasmSession(model: Uint8Array): Promise<LoadedSession> {
   return { session, backend: Backend.Wasm };
 }
 
-async function createSession(config: WorkerConfig): Promise<LoadedSession> {
-  ort.env.wasm.wasmPaths = config.runtimeBaseUrl;
-  const response = await fetch(config.modelUrl);
-  if (!response.ok) {
-    throw new Error(`model download failed: ${response.status}`);
+async function loadAssets(config: WorkerConfig, id: number): Promise<Uint8Array<ArrayBuffer>> {
+  let loadedBytes = 0;
+  let reportedBytes = 0;
+  const onBytes = (count: number): void => {
+    loadedBytes += count;
+    if (loadedBytes - reportedBytes >= PROGRESS_STEP_BYTES) {
+      reportedBytes = loadedBytes;
+      scope.postMessage({ id, loadedBytes, totalBytes: config.downloadBytes });
+    }
+  };
+  const model = await loadAsset(config.modelUrl, onBytes);
+  if (config.runtimeWasmUrl !== undefined) {
+    ort.env.wasm.wasmBinary = await loadAsset(config.runtimeWasmUrl, onBytes);
   }
-  const model = new Uint8Array(await response.arrayBuffer());
+  if (loadedBytes > 0) {
+    await evictOtherAssets(config.runtimeWasmUrl === undefined ? [config.modelUrl] : [config.modelUrl, config.runtimeWasmUrl]).catch(() => undefined);
+    scope.postMessage({ id, loadedBytes, totalBytes: loadedBytes });
+  }
+  return model;
+}
+
+async function createSession(config: WorkerConfig, id: number): Promise<LoadedSession> {
+  ort.env.wasm.wasmPaths = config.runtimeBaseUrl;
+  const model = await loadAssets(config, id);
   if (config.preferWebGpu && scope.navigator.gpu !== undefined) {
     try {
       const session = await ort.InferenceSession.create(model, { executionProviders: ['webgpu'] });
@@ -80,7 +99,7 @@ async function predictMask(loadedSession: LoadedSession, config: WorkerConfig, b
 
 async function cut(request: CutRequest): Promise<CutResponse> {
   const started = performance.now();
-  loaded ??= createSession(request.config);
+  loaded ??= createSession(request.config, request.id);
   const loadedSession = await loaded;
   const bitmap = request.image instanceof Blob ? await createImageBitmap(request.image) : request.image;
   const size = { width: bitmap.width, height: bitmap.height };
